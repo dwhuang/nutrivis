@@ -36,11 +36,13 @@ rect {
   <h2>食品營養成份資料視覺化</h2>
   <div>
     主要維度: 面積大小
-    <select id="area_select">
-    </select><br/>
+    <select id="area_select"></select>
+    <button style="display: none;" id="layout">重新製圖 (不保留相對位置)</button>
+    <br/>
     次要維度: 顏色深淺
     <select id="brightness_select">
     </select>
+    (越淺色代表值越小)
   </div>
   <h2 id="food_class" style="text-align: center;">　</h2>
   <div id="chart"></div>
@@ -54,24 +56,6 @@ rect {
   </div>
   <script type="text/javascript">
 
-// load nutrition names and classes into <select>'s
-d3.json("meta.json", function(d) {
-    var options = d3.selectAll("select").selectAll("option")
-        .data(d)
-      .enter().append("option")
-        .each(function(d) {
-            if (d.name) {
-              d3.select(this)
-                  .attr('value', d.name)
-                  .text(d.name);
-            } else {
-              d3.select(this)
-                  .attr('disabled', 'disabled')
-                  .text('--- ' + d['class'] + " ---");
-            }
-          });
-  });
-
 // global vars
 var w = 1200,
     h = 650,
@@ -81,7 +65,8 @@ var w = 1200,
     root,
     node, // current zoom root
     primaryKey = '等值',
-    secondaryKey = '等值';
+    secondaryKey = '等值',
+    secondaryRange = [0, 1];
 
 // init treemap
 var treemap = d3.layout.treemap()
@@ -102,10 +87,29 @@ var svg = d3.select("#chart").append("div")
 
 // set tooltip
 var tip = d3.tip().attr('class', 'd3-tip').html(function(d) { 
-    return d.name + "<br/>主: " + getFormattedNutrition(d, primaryKey) 
-        + "<br/>次: " + getFormattedNutrition(d, secondaryKey); 
-  });
+  return d.name 
+      + "<br/>主: " + getFormattedNutrition(d, primaryKey) 
+      + "<br/>次: " + getFormattedNutrition(d, secondaryKey); 
+});
 svg.call(tip);
+
+// load nutrition names and classes into <select>'s
+d3.json("meta.json", function(d) {
+  var options = d3.selectAll("select").selectAll("option")
+      .data(d)
+    .enter().append("option")
+      .each(function(d) {
+        if (d.name) {
+          d3.select(this)
+              .attr('value', d.name)
+              .text(d.name);
+        } else {
+          d3.select(this)
+              .attr('disabled', 'disabled')
+              .text('--- ' + d['class'] + " ---");
+        }
+      });
+});
 
 // load data
 d3.json("food.json", function(data) {
@@ -144,7 +148,8 @@ d3.json("food.json", function(data) {
       .attr("height", function(d) { return d.dy; })
       .style("stroke", "white")
       .style("stroke-width", "0.5")
-      .style("fill", function(d) { return color(d.parent.name); });
+      //.style("fill", function(d) { return color(d.parent.name); });
+      .style("fill", cellFill);
 
   cell.append("svg:text")
       .attr("x", function(d) { return d.dx / 2; })
@@ -162,26 +167,31 @@ d3.json("food.json", function(data) {
 
   // update when the primary key changes
   d3.select("#area_select").on("change", function() {
-    var key = this.value;
-    treemap.value(function(d) { return getNutritionValue(d, key); }).nodes(root);
+    primaryKey = this.value;
+    treemap.nodes(root);
     zoom(node);
-    primaryKey = key;
   });
 
   // update when the secondary key changes
   d3.select("#brightness_select").on("change", function(d) {
-    var key = this.value;
-    var range = getNutritionRange(key);
-    cell.select("rect").style("fill", function(d) { 
-        var colorRange = d3.scale.linear()
-            .range(["white", color(d.parent.name)])
-            .domain(range);
-        return colorRange(getNutritionValue(d, key));
-      })
+    secondaryKey = this.value;
+    secondaryRange = getNutritionRange(secondaryKey);
+    cell.select("rect").style("fill", cellFill);
     zoom(node);
-    secondaryKey = key;
+  });
+
+  d3.select('#layout').on("click", function() {
+    treemap.sticky(true).nodes(root);
+    zoom(node);
   });
 });
+
+function cellFill(d) {
+  var colorRange = d3.scale.linear()
+    .range(["white", color(d.parent.name)])
+    .domain(secondaryRange);
+  return colorRange(getNutritionValue(d, secondaryKey));
+}
 
 function getNutritionValue(d, key) {
   if (key == '等值') {
