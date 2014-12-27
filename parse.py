@@ -182,3 +182,4 @@ elif sys.argv[1] == 'meta':
     with codecs.open('meta.json', 'w', encoding='utf-8') as f:
         json.dump(nutrition_list, f, ensure_ascii=False, indent=True)
         f.close()
+

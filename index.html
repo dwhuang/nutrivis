@@ -8,10 +8,10 @@
     <script type="text/javascript" src="d3/tip.js"></script>
     <style type="text/css">
 
-.chart {
+#chart div {
   display: block;
   margin: auto;
-  margin-top: 40px;
+  margin-top: 10px;
 }
 
 text {
@@ -34,81 +34,89 @@ rect {
     </style>
   </head>
   <body>
-    <div id="footer">
+    <div>
       <div>
-        面積大小
+        主要維度: 面積大小
         <select id="area_select">
         </select>
       </div>
       <div>
-        顏色深淺
+        次要維度: 顏色深淺
         <select id="brightness_select">
         </select>
       </div>
+      <!--<div>-->
+      <!--  <ol>-->
+      <!--    <li>單位為每100克可食部含量</li>-->
+      <!--  </ol>-->
+      <!--</div>-->
     </div>
     <h1 id="food_class" style="text-align: center;">　</h1>
-    <div id="body"></div>
+    <div id="chart"></div>
     <script type="text/javascript">
 
+// load nutrition names and classes into <select>'s
 d3.json("meta.json", function(d) {
-  var options = d3.selectAll("select").selectAll("option")
-      .data(d)
+    var options = d3.selectAll("select").selectAll("option")
+        .data(d)
       .enter().append("option")
-      .each(function(d) {
-          if (d.name) {
-            d3.select(this)
-                .attr('value', d.name)
-                .text(d.name);
-          } else {
-            d3.select(this)
-                .attr('disabled', 'disabled')
-                .text('--- ' + d['class'] + " ---");
-          }
-        });
-});
+        .each(function(d) {
+            if (d.name) {
+              d3.select(this)
+                  .attr('value', d.name)
+                  .text(d.name);
+            } else {
+              d3.select(this)
+                  .attr('disabled', 'disabled')
+                  .text('--- ' + d['class'] + " ---");
+            }
+          });
+  });
 
+// global vars
 var w = 1200,
     h = 650,
     x = d3.scale.linear().range([0, w]),
     y = d3.scale.linear().range([0, h]),
     color = d3.scale.category20b(),
     root,
-    node,
+    node, // current zoom root
     primaryKey = '等值',
     secondaryKey = '等值';
 
-var tip = d3.tip().attr('class', 'd3-tip').html(function(d) { 
-    return d.name + "<br/>主: " + getFormattedNutrition(d, primaryKey) 
-        + "<br/>次: " + getFormattedNutrition(d, secondaryKey); 
-  });
-
+// init treemap
 var treemap = d3.layout.treemap()
     .round(false)
     .size([w, h])
     .sticky(true)
     .padding(0)
-    .value(function(d) { return 1; });
+    .value(function(d) { return getNutritionValue(d, primaryKey); });
 
-var svg = d3.select("#body").append("div")
-    .attr("class", "chart")
+// init drawing area
+var svg = d3.select("#chart").append("div")
     .style("width", w + "px")
     .style("height", h + "px")
   .append("svg:svg")
     .attr("width", w)
     .attr("height", h)
   .append("svg:g")
-    //.attr("transform", "translate(.5,.5)");
 
+// set tooltip
+var tip = d3.tip().attr('class', 'd3-tip').html(function(d) { 
+    return d.name + "<br/>主: " + getFormattedNutrition(d, primaryKey) 
+        + "<br/>次: " + getFormattedNutrition(d, secondaryKey); 
+  });
 svg.call(tip);
 
+// load data
 d3.json("food.json", function(data) {
   node = root = data;
 
-  var nodes = treemap.nodes(root)
+  var leaves = treemap.nodes(root)
       .filter(function(d) { return !d.children; });
 
   var cell = svg.selectAll("g")
-      .data(nodes)
+      .data(leaves)
     .enter().append("svg:g")
       .attr("class", "cell")
       .attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; })
@@ -117,14 +125,17 @@ d3.json("food.json", function(data) {
       .on("mouseleave.tip", tip.hide)
       .on("mouseenter.hl", function(d) {
           d3.select("#food_class").text(d.parent.name);
+          // highlight
           var rect = d3.select(this).select('rect');
           var fill = rect.style('fill');
-          rect.attr('oldfill', fill)
+          rect.attr('oldfill', fill) // record old fill value
               .style("fill", d3.hsl(fill).brighter(0.5).toString());
         })
       .on("mouseleave.hl", function(d) {
+          d3.select("#food_class").text('　');
+          // undo highlight
           var rect = d3.select(this).select('rect');
-          var oldfill = rect.attr('oldfill');
+          var oldfill = rect.attr('oldfill'); // restore old fill value
           rect.attr('oldfill', null)
               .style("fill", oldfill);
         });
@@ -144,15 +155,13 @@ d3.json("food.json", function(data) {
       .text(function(d) { return d.name; })
       .style("cursor", "default")
       .style("font-size", function(d) {
-          //d.w = this.getComputedTextLength(); 
           var bbox = this.getBBox();
           d.w = bbox.width;
           d.h = bbox.height;
           return (d.dx > d.w && d.dy > d.h) ? 10 : 0; 
         });
 
-  d3.select(window).on("click", function() { zoom(root); });
-
+  // update when the primary key changes
   d3.select("#area_select").on("change", function() {
     var key = this.value;
     treemap.value(function(d) { return getNutritionValue(d, key); }).nodes(root);
@@ -160,6 +169,7 @@ d3.json("food.json", function(data) {
     primaryKey = key;
   });
 
+  // update when the secondary key changes
   d3.select("#brightness_select").on("change", function(d) {
     var key = this.value;
     var range = getNutritionRange(key);
@@ -229,8 +239,7 @@ function zoom(d) {
   t.select("text")
       .attr("x", function(d) { return kx * d.dx / 2; })
       .attr("y", function(d) { return ky * d.dy / 2; })
-      .style("font-size", function(d) { return (kx * d.dx > d.w && kx * d.dy > d.h) ? 10 : 0; });
-      //.style("opacity", function(d) { return kx * d.dx > d.w ? 1 : 0; });
+      .style("font-size", function(d) { return (kx * d.dx > d.w && ky * d.dy > d.h) ? 10 : 0; });
 
   node = d;
   d3.event.stopPropagation();
