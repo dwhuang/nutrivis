@@ -67,15 +67,20 @@ d3.json("meta.json", function(d) {
         });
 });
 
-var tip = d3.tip().attr('class', 'd3-tip').html(function(d) { return d.name; });
-
 var w = 1200,
     h = 650,
     x = d3.scale.linear().range([0, w]),
     y = d3.scale.linear().range([0, h]),
     color = d3.scale.category20b(),
     root,
-    node;
+    node,
+    primaryKey = '等值',
+    secondaryKey = '等值';
+
+var tip = d3.tip().attr('class', 'd3-tip').html(function(d) { 
+    return d.name + "<br/>主: " + getFormattedNutrition(d, primaryKey) 
+        + "<br/>次: " + getFormattedNutrition(d, secondaryKey); 
+  });
 
 var treemap = d3.layout.treemap()
     .round(false)
@@ -152,6 +157,7 @@ d3.json("food.json", function(data) {
     var key = this.value;
     treemap.value(function(d) { return getNutritionValue(d, key); }).nodes(root);
     zoom(node);
+    primaryKey = key;
   });
 
   d3.select("#brightness_select").on("change", function(d) {
@@ -164,6 +170,7 @@ d3.json("food.json", function(data) {
         return colorRange(getNutritionValue(d, key));
       })
     zoom(node);
+    secondaryKey = key;
   });
 });
 
@@ -184,6 +191,26 @@ function getNutritionRange(key) {
   var opt = d3.select('select').selectAll('option')
       .filter(function(d) { return d.name == key; });
   return [opt.datum().min, opt.datum().max];
+}
+
+function getNutritionUnit(key) {
+  if (key == '等值') {
+    return '';
+  }
+  var opt = d3.select('select').selectAll('option')
+      .filter(function(d) { return d.name == key; });
+  return opt.datum().unit;
+}
+
+function getFormattedNutrition(d, key) {
+  var val = getNutritionValue(d, key);
+  var unit = getNutritionUnit(key);
+  switch (unit) {
+    case 'g':
+      val = val.toFixed(6);
+      break;
+  }
+  return val + " " + unit;
 }
 
 function zoom(d) {
