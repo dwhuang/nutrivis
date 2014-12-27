@@ -69,8 +69,8 @@ d3.json("meta.json", function(d) {
 
 var tip = d3.tip().attr('class', 'd3-tip').html(function(d) { return d.name; });
 
-var w = 1000,
-    h = 600,
+var w = 1200,
+    h = 650,
     x = d3.scale.linear().range([0, w]),
     y = d3.scale.linear().range([0, h]),
     color = d3.scale.category20b(),
@@ -138,36 +138,53 @@ d3.json("food.json", function(data) {
       .attr("text-anchor", "middle")
       .text(function(d) { return d.name; })
       .style("cursor", "default")
-      .style("font-size", function(d) { d.w = this.getComputedTextLength(); return d.dx > d.w ? 10 : 0; });
-      //.style("opacity", function(d) { d.w = this.getComputedTextLength(); return d.dx > d.w ? 1 : 0; });
+      .style("font-size", function(d) {
+          //d.w = this.getComputedTextLength(); 
+          var bbox = this.getBBox();
+          d.w = bbox.width;
+          d.h = bbox.height;
+          return (d.dx > d.w && d.dy > d.h) ? 10 : 0; 
+        });
 
   d3.select(window).on("click", function() { zoom(root); });
 
   d3.select("#area_select").on("change", function() {
-    var value = this.value;
-    treemap.value(function(d) { return value == "等值" ? 1 : d[value]; }).nodes(root);
+    var key = this.value;
+    treemap.value(function(d) { return getNutritionValue(d, key); }).nodes(root);
     zoom(node);
   });
 
   d3.select("#brightness_select").on("change", function(d) {
-    var value = this.value;
-    var opt = d3.select(this).selectAll("option")
-        .filter(function(d) { return d.name == value ? true : false});
-    var min = opt.datum().min;
-    var max = opt.datum().max;
+    var key = this.value;
+    var range = getNutritionRange(key);
     cell.select("rect").style("fill", function(d) { 
-        if (value == '等值') {
-            return color(d.parent.name);
-        }
-        var c = d3.scale.linear()
+        var colorRange = d3.scale.linear()
             .range(["white", color(d.parent.name)])
-            .domain([min, max]);
-        return c(d[value]);
+            .domain(range);
+        return colorRange(getNutritionValue(d, key));
       })
     zoom(node);
   });
 });
 
+function getNutritionValue(d, key) {
+  if (key == '等值') {
+    return 1;
+  }
+  if (!(key in d)) {
+    return 0;
+  }
+  return d[key];
+}
+
+function getNutritionRange(key) {
+  if (key == '等值') {
+    return [0, 1];
+  }
+  var opt = d3.select('select').selectAll('option')
+      .filter(function(d) { return d.name == key; });
+  return [opt.datum().min, opt.datum().max];
+}
 
 function zoom(d) {
   var kx = w / d.dx, ky = h / d.dy;
@@ -185,7 +202,7 @@ function zoom(d) {
   t.select("text")
       .attr("x", function(d) { return kx * d.dx / 2; })
       .attr("y", function(d) { return ky * d.dy / 2; })
-      .style("font-size", function(d) { return kx * d.dx > d.w ? 10 : 0; });
+      .style("font-size", function(d) { return (kx * d.dx > d.w && kx * d.dy > d.h) ? 10 : 0; });
       //.style("opacity", function(d) { return kx * d.dx > d.w ? 1 : 0; });
 
   node = d;
