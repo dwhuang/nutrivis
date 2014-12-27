@@ -11,7 +11,6 @@
 #chart div {
   display: block;
   margin: auto;
-  margin-top: 10px;
 }
 
 text {
@@ -34,26 +33,26 @@ rect {
     </style>
   </head>
   <body>
-    <div>
-      <div>
-        主要維度: 面積大小
-        <select id="area_select">
-        </select>
-      </div>
-      <div>
-        次要維度: 顏色深淺
-        <select id="brightness_select">
-        </select>
-      </div>
-      <!--<div>-->
-      <!--  <ol>-->
-      <!--    <li>單位為每100克可食部含量</li>-->
-      <!--  </ol>-->
-      <!--</div>-->
-    </div>
-    <h1 id="food_class" style="text-align: center;">　</h1>
-    <div id="chart"></div>
-    <script type="text/javascript">
+  <h2>食品營養成份資料視覺化</h2>
+  <div>
+    主要維度: 面積大小
+    <select id="area_select">
+    </select><br/>
+    次要維度: 顏色深淺
+    <select id="brightness_select">
+    </select>
+  </div>
+  <h2 id="food_class" style="text-align: center;">　</h2>
+  <div id="chart"></div>
+  <div>
+    <ul>
+      <li>單位: 每100克可食部含量</li>
+      <li><a href="http://data.fda.gov.tw/frontsite/data/DataAction.do?method=doDetail&infoId=20">
+        資料來源</a></li>
+      <li><a href="https://github.com/dwhuang/nutrivis">Github repo</a></li>
+    </ul>
+  </div>
+  <script type="text/javascript">
 
 // load nutrition names and classes into <select>'s
 d3.json("meta.json", function(d) {
@@ -245,7 +244,7 @@ function zoom(d) {
   d3.event.stopPropagation();
 }
 
-    </script>
+  </script>
   </body>
 </html>
 
