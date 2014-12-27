@@ -64,7 +64,7 @@ if sys.argv[1] == 'distinct':
     for u in unique:
         print u
     print "tot:", len(unique)
-elif sys.argv[1] == 'food':
+elif sys.argv[1] == 'json':
     food = {}
     nutrition_dict = {}
     nutrition_classes = set()
@@ -147,39 +147,3 @@ elif sys.argv[1] == 'food':
     with codecs.open('meta.json', 'w', encoding='utf-8') as f:
         json.dump(nutrition_list, f, ensure_ascii=False, indent=True)
         f.close()
-
-elif sys.argv[1] == 'meta':
-    with codecs.open('nutrition.csv', 'r', encoding='utf-8-sig') as f:
-        nutrition_list = []
-        nutrition_set = set()
-        nutrition_class_set = set()
-        for line in f:
-            row = line.split('\t')
-            nutrition = row[9].strip()
-            nutrition_js = process_nutrition_for_js(nutrition)
-            if not nutrition_js:
-                continue
-            nutrition_class = row[8].strip()
-            if nutrition not in nutrition_set:
-                nutrition_set.add(nutrition)
-                nutrition_list.append({
-                    'name': nutrition, 
-                    'js_name': nutrition_js, 
-                    'class': nutrition_class})
-            if nutrition_class not in nutrition_class_set:
-                nutrition_class_set.add(nutrition_class)
-                nutrition_list.append({ # serves as a menu divider
-                    'name': '', 
-                    'js_name': '', 
-                    'class': nutrition_class})
-        f.close()
-    # dummy nutrition for js menu
-    nutrition_list.append({
-        'name': u'等值',
-        'js_name': 'count',
-        'class': ''})
-    nutrition_list.sort(cmp=cmp_nutrition)
-    with codecs.open('meta.json', 'w', encoding='utf-8') as f:
-        json.dump(nutrition_list, f, ensure_ascii=False, indent=True)
-        f.close()
-
