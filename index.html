@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+    <!--<link type="text/css" rel="stylesheet" href="style.css"/>-->
+    <script type="text/javascript" src="d3/d3.js"></script>
+    <!--<script type="text/javascript" src="d3/d3.layout.js"></script>-->
+    <script type="text/javascript" src="d3/tip.js"></script>
+    <style type="text/css">
+
+.chart {
+  display: block;
+  margin: auto;
+  margin-top: 40px;
+}
+
+text {
+  font-size: 10px;
+}
+
+rect {
+  fill: none;
+}
+
+.d3-tip {
+    line-height: 1;
+    font-weight: bold;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.8);
+    color: #fff;
+    border-radius: 2px;
+}
+
+    </style>
+  </head>
+  <body>
+    <div id="footer">
+      <div>
+        面積大小
+        <select id="area_select">
+        </select>
+      </div>
+      <div>
+        顏色深淺
+        <select id="brightness_select">
+        </select>
+      </div>
+    </div>
+    <h1 id="food_class" style="text-align: center;">　</h1>
+    <div id="body"></div>
+    <script type="text/javascript">
+
+d3.json("meta.json", function(d) {
+  var options = d3.selectAll("select").selectAll("option")
+      .data(d)
+      .enter().append("option")
+      .each(function(d) {
+          if (d.name) {
+            d3.select(this)
+                .attr('value', d.name)
+                .text(d.name);
+          } else {
+            d3.select(this)
+                .attr('disabled', 'disabled')
+                .text('--- ' + d['class'] + " ---");
+          }
+        });
+});
+
+var tip = d3.tip().attr('class', 'd3-tip').html(function(d) { return d.name; });
+
+var w = 1000,
+    h = 600,
+    x = d3.scale.linear().range([0, w]),
+    y = d3.scale.linear().range([0, h]),
+    color = d3.scale.category20b(),
+    root,
+    node;
+
+var treemap = d3.layout.treemap()
+    .round(false)
+    .size([w, h])
+    .sticky(true)
+    .padding(0)
+    .value(function(d) { return 1; });
+
+var svg = d3.select("#body").append("div")
+    .attr("class", "chart")
+    .style("width", w + "px")
+    .style("height", h + "px")
+  .append("svg:svg")
+    .attr("width", w)
+    .attr("height", h)
+  .append("svg:g")
+    //.attr("transform", "translate(.5,.5)");
+
+svg.call(tip);
+
+d3.json("food.json", function(data) {
+  node = root = data;
+
+  var nodes = treemap.nodes(root)
+      .filter(function(d) { return !d.children; });
+
+  var cell = svg.selectAll("g")
+      .data(nodes)
+    .enter().append("svg:g")
+      .attr("class", "cell")
+      .attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; })
+      .on("click", function(d) { return zoom(node == d.parent ? root : d.parent); })
+      .on("mouseenter.tip", tip.show)
+      .on("mouseleave.tip", tip.hide)
+      .on("mouseenter.hl", function(d) {
+          d3.select("#food_class").text(d.parent.name);
+          var rect = d3.select(this).select('rect');
+          var fill = rect.style('fill');
+          rect.attr('oldfill', fill)
+              .style("fill", d3.hsl(fill).brighter(0.5).toString());
+        })
+      .on("mouseleave.hl", function(d) {
+          var rect = d3.select(this).select('rect');
+          var oldfill = rect.attr('oldfill');
+          rect.attr('oldfill', null)
+              .style("fill", oldfill);
+        });
+
+  cell.append("svg:rect")
+      .attr("width", function(d) { return d.dx; })
+      .attr("height", function(d) { return d.dy; })
+      .style("stroke", "white")
+      .style("stroke-width", "0.5")
+      .style("fill", function(d) { return color(d.parent.name); });
+
+  cell.append("svg:text")
+      .attr("x", function(d) { return d.dx / 2; })
+      .attr("y", function(d) { return d.dy / 2; })
+      .attr("dy", ".35em")
+      .attr("text-anchor", "middle")
+      .text(function(d) { return d.name; })
+      .style("cursor", "default")
+      .style("font-size", function(d) { d.w = this.getComputedTextLength(); return d.dx > d.w ? 10 : 0; });
+      //.style("opacity", function(d) { d.w = this.getComputedTextLength(); return d.dx > d.w ? 1 : 0; });
+
+  d3.select(window).on("click", function() { zoom(root); });
+
+  d3.select("#area_select").on("change", function() {
+    var value = this.value;
+    treemap.value(function(d) { return value == "等值" ? 1 : d[value]; }).nodes(root);
+    zoom(node);
+  });
+
+  d3.select("#brightness_select").on("change", function(d) {
+    var value = this.value;
+    var opt = d3.select(this).selectAll("option")
+        .filter(function(d) { return d.name == value ? true : false});
+    var min = opt.datum().min;
+    var max = opt.datum().max;
+    cell.select("rect").style("fill", function(d) { 
+        if (value == '等值') {
+            return color(d.parent.name);
+        }
+        var c = d3.scale.linear()
+            .range(["white", color(d.parent.name)])
+            .domain([min, max]);
+        return c(d[value]);
+      })
+    zoom(node);
+  });
+});
+
+
+function zoom(d) {
+  var kx = w / d.dx, ky = h / d.dy;
+  x.domain([d.x, d.x + d.dx]);
+  y.domain([d.y, d.y + d.dy]);
+
+  var t = svg.selectAll("g.cell").transition()
+      .duration(d3.event.altKey ? 7500 : 750)
+      .attr("transform", function(d) { return "translate(" + x(d.x) + "," + y(d.y) + ")"; });
+
+  t.select("rect")
+      .attr("width", function(d) { return kx * d.dx; })
+      .attr("height", function(d) { return ky * d.dy; })
+
+  t.select("text")
+      .attr("x", function(d) { return kx * d.dx / 2; })
+      .attr("y", function(d) { return ky * d.dy / 2; })
+      .style("font-size", function(d) { return kx * d.dx > d.w ? 10 : 0; });
+      //.style("opacity", function(d) { return kx * d.dx > d.w ? 1 : 0; });
+
+  node = d;
+  d3.event.stopPropagation();
+}
+
+    </script>
+  </body>
+</html>
+
+
