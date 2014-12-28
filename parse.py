@@ -73,11 +73,15 @@ elif sys.argv[1] == 'json':
         for line in f:
             row = line.split('\t')
             category = row[0].strip()
+            dtype = row[1].strip()
             name = row[3].strip()
             nutrition_class = row[8].strip()
             nutrition = row[9].strip()
             unit = row[10].strip()
             quantity = row[11].strip()
+            # sktip 樣品平均值
+            if dtype == u'樣品平均值':
+                continue
             # skip empty quantity
             if not quantity:
                 continue
